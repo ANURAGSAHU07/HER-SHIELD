@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HER SHIELD - Advanced Detection System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #151520;
+            color: white;
+            font-family: 'Comfortaa', sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .logo {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            background-color: black;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #dc3545;
+        }
+        
+        .header h1 {
+            margin: 0;
+            color: #dc3545;
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            width: 1870px;
+            margin: 0 auto;
+            height: 770px;
+        }
+        
+        .video-container {
+            flex: 2;
+            position: relative;
+            height: 100%;
+            min-width: 0;
+        }
+        
+        .controls {
+            flex: 0.5;
+            background-color: #1a1a2e;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100px;
+            border: 1px solid #dc3545;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .video-feed {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            border: 1px solid #dc3545;
+        }
+        
+        .action-buttons {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        .button:hover {
+            background-color: #bb2d3b;
+        }
+
+        .button.manual-alert {
+            background-color: yellow;
+            color: black;
+        }
+        
+        .alerts {
+            margin-top: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .alerts h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .alerts-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #1e1e2f;
+            border-radius: 4px;
+            padding: 10px;
+            border: 1px solid #dc3545;
+        }
+        
+        .alerts-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .alerts-container::-webkit-scrollbar-track {
+            background: #1a1a2e;
+            border-radius: 4px;
+        }
+        
+        .alerts-container::-webkit-scrollbar-thumb {
+            background: #dc3545;
+            border-radius: 4px;
+        }
+        
+        .alert-item {
+            background-color: rgba(220, 53, 69, 0.1);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .status {
+            background-color: #1e1e2f;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid #dc3545;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: green;
+            margin-right: 5px;
+        }
+        
+        .recording-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background-color: rgba(220, 53, 69, 0.9);
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .recording .recording-indicator {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img class="logo" src="https://i.pinimg.com/474x/2f/25/86/2f2586ce5414c9156ce271cd1da17b93.jpg" alt="Logo">
+        <h1>HER SHIELD</h1>
+    </div>
+    
+    <div class="container">
+        <div class="video-container" id="videoContainer">
+            <img src="{{ url_for('video_feed') }}" class="video-feed">
+            <div class="recording-indicator">🔴 Recording</div>
+        </div>
+        
+        <div class="controls">
+            <div class="status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">System Active</span>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="button" onclick="toggleRecording()">🎥 Record</button>
+                <button class="button" onclick="contactEmergency('police')">🚓 Contact Police</button>
+                <button class="button" onclick="contactEmergency('hospital')">🏥 Contact Hospital</button>
+                <button class="button manual-alert" onclick="manualAlert()">⚠️ Manual Alert</button>
+            </div>
+            
+            <div class="alerts">
+                <h3>Recent Alerts</h3>
+                <div class="alerts-container" id="alertsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { mediaSource: "screen" }
+                });
+                
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    document.body.appendChild(a);
+                    a.style = 'display: none';
+                    a.href = url;
+                    a.download = 'her-shield-recording.webm';
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                document.getElementById('videoContainer').classList.add('recording');
+            } catch (err) {
+                console.error("Error: " + err);
+            }
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            isRecording = false;
+            document.getElementById('videoContainer').classList.remove('recording');
+        }
+
+        function contactEmergency(type) {
+            if (type === 'police') {
+                alert('Contacting nearby police...');
+            } else if (type === 'hospital') {
+                alert('Contacting nearby hospital...');
+            }
+        }
+
+        function manualAlert() {
+            const alertsList = document.getElementById('alertsList');
+            const alertTime = new Date().toLocaleString();
+            const alertHtml = `
+                <div class="alert-item">
+                    <strong>${alertTime}</strong><br>
+                    Manual Alert Triggered<br>
+                    Priority: High
+                </div>
+            `;
+            alertsList.insertAdjacentHTML('afterbegin', alertHtml);
+        }
+
+        function updateAlerts() {
+            fetch('/get_alerts')
+                .then(response => response.json())
+                .then(data => {
+                    const alertsList = document.getElementById('alertsList');
+                    let alertsHtml = '';
+                    
+                    data.alerts.reverse().forEach(alert => {
+                        alertsHtml += `
+                            <div class="alert-item">
+                                <strong>${alert.time}</strong><br>
+                                Males Detected: ${alert.males_detected}<br>
+                                Females Detected: ${alert.females_detected}
+                            </div>
+                        `;
+                    });
+                    
+                    alertsList.innerHTML = alertsHtml;
+                });
+        }
+
+        setInterval(updateAlerts, 2000);
+    </script>
+</body>
+</html>
